@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
+import './App.css';
 
-function App() {
+
+function Timer() {
   const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
     let timer;
     if (isRunning) {
-      timer = setInterval(() => setTime((prevTime) => prevTime + 1), 1000);
+      timer = setInterval(() => setTime((prev) => prev + 1), 1000);
     }
     return () => clearInterval(timer);
   }, [isRunning]);
@@ -22,17 +24,14 @@ function App() {
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Time Tracker</h1>
-      <h2>{formatTime(time)}</h2>
+    <div className="timer-container">
+      <h1 className="timer">{formatTime(time)}</h1>
       <button onClick={() => setIsRunning(!isRunning)}>
         {isRunning ? "Pause" : "Start"}
       </button>
-      <button onClick={() => setTime(0)} disabled={isRunning}>
-        Reset
-      </button>
+      <button onClick={() => setTime(0)}>Reset</button>
     </div>
   );
 }
 
-export default App;
+export default Timer;
