@@ -28,3 +28,8 @@ button {
 button:hover {
   background-color: #00cc1a; /* Slightly darker green on hover */
 }
+
+/* App.css */
+body {
+  background-color: red; /* Test background */
+}

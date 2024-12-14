@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import './App.css';
-
+import './App.css'; // Relative path to App.css
 
 function Timer() {
   const [time, setTime] = useState(0);
