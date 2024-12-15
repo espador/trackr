@@ -2,66 +2,55 @@ import React, { useState, useEffect } from "react";
 import "./App.css";
 
 function Timer() {
-  const [time, setTime] = useState(() => {
-    // Retrieve saved elapsed time from localStorage (default to 0)
-    const savedTime = localStorage.getItem("elapsedTime");
-    return savedTime ? parseInt(savedTime, 10) : 0;
-  });
+  const [time, setTime] = useState(() => parseInt(localStorage.getItem("time")) || 0);
+  const [isRunning, setIsRunning] = useState(() => localStorage.getItem("isRunning") === "true");
+  const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem("tasks")) || []);
+  const [lastTaskTime, setLastTaskTime] = useState(() => parseInt(localStorage.getItem("lastTaskTime")) || 0);
+  const [note, setNote] = useState("");
+  const [projectName, setProjectName] = useState("Your project name");
 
-  const [isRunning, setIsRunning] = useState(() => {
-    // Retrieve running state from localStorage (default to false)
-    const savedIsRunning = localStorage.getItem("isRunning");
-    return savedIsRunning === "true"; // Convert string to boolean
-  });
-
-  const [startTimestamp, setStartTimestamp] = useState(() => {
-    // Retrieve saved start timestamp from localStorage (default to null)
-    const savedStartTimestamp = localStorage.getItem("startTimestamp");
-    return savedStartTimestamp ? parseInt(savedStartTimestamp, 10) : null;
-  });
-
+  // Timer Logic
   useEffect(() => {
-    if (isRunning && startTimestamp) {
-      const interval = setInterval(() => {
-        // Update elapsed time based on the difference between now and startTimestamp
-        const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-        setTime((currentTime - startTimestamp));
-      }, 1000);
-
-      return () => clearInterval(interval); // Cleanup the interval on unmount
+    let interval;
+    if (isRunning) {
+      interval = setInterval(() => setTime((prevTime) => prevTime + 1), 1000);
     }
-  }, [isRunning, startTimestamp]);
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
-  // Save timer state to localStorage whenever it changes
+  // Persist state to localStorage
   useEffect(() => {
-    localStorage.setItem("elapsedTime", time);
+    localStorage.setItem("time", time);
     localStorage.setItem("isRunning", isRunning);
-    if (startTimestamp) {
-      localStorage.setItem("startTimestamp", startTimestamp);
-    } else {
-      localStorage.removeItem("startTimestamp");
-    }
-  }, [time, isRunning, startTimestamp]);
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    localStorage.setItem("lastTaskTime", lastTaskTime);
+  }, [time, isRunning, tasks, lastTaskTime]);
 
-  const startTimer = () => {
-    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-    setStartTimestamp(currentTime); // Save the start timestamp
-    setIsRunning(true);
-  };
+  // Timer Controls
+  const toggleTimer = () => setIsRunning(!isRunning);
 
-  const pauseTimer = () => {
-    setIsRunning(false);
+  const addTask = () => {
+    const taskDuration = time - lastTaskTime;
+    const newTask = {
+      id: Date.now(),
+      duration: taskDuration,
+      name: `New Task ${tasks.length + 1}`,
+    };
+    setTasks([...tasks, newTask]);
+    setLastTaskTime(time);
   };
 
   const resetTimer = () => {
     setTime(0);
     setIsRunning(false);
-    setStartTimestamp(null);
-    localStorage.removeItem("elapsedTime");
-    localStorage.removeItem("startTimestamp");
-    localStorage.setItem("isRunning", false);
+    setTasks([]);
+    setLastTaskTime(0);
+    localStorage.clear();
   };
 
+  const removeTask = (id) => setTasks(tasks.filter((task) => task.id !== id));
+
+  // Helpers
   const formatTime = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -71,16 +60,92 @@ function Timer() {
       .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const formatCompactTime = (seconds) => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    return `${Math.floor(seconds / 3600)}h`;
+  };
+
   return (
     <div className="timer-container">
       <h1 className="timer">{formatTime(time)}</h1>
-      {isRunning ? (
-        <button onClick={pauseTimer}>Pause</button>
-      ) : (
-        <button onClick={startTimer}>Start</button>
+      <div className="button-group">
+        <button onClick={toggleTimer}>{isRunning ? "Pause" : "Start"}</button>
+        <button onClick={addTask} disabled={!isRunning}>
+          New Task
+        </button>
+        <button onClick={resetTimer}>Stop</button>
+      </div>
+      <div className="project-section">
+        <label className="project-label">Project</label>
+        <EditableText
+          value={projectName}
+          placeholder="Your project name"
+          onSave={(newName) => setProjectName(newName)}
+        />
+        <input
+          type="text"
+          maxLength="140"
+          placeholder="Add a note (140 characters max)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+      {tasks.length > 0 && (
+        <div className="laps">
+          <h2>Task Sessions</h2>
+          <ul>
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <EditableText
+                  value={task.name}
+                  onSave={(newName) => {
+                    const updatedTasks = tasks.map((t) =>
+                      t.id === task.id ? { ...t, name: newName } : t
+                    );
+                    setTasks(updatedTasks);
+                  }}
+                />
+                <span className="lap-time">Duration: {formatCompactTime(task.duration)}</span>
+                <button onClick={() => removeTask(task.id)}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      <button onClick={resetTimer}>Reset</button>
     </div>
+  );
+}
+
+// Editable Input Component
+function EditableText({ value, placeholder, onSave }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+
+  const handleSave = () => {
+    setIsEditing(false);
+    onSave(inputValue);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSave();
+  };
+
+  return isEditing ? (
+    <input
+      type="text"
+      value={inputValue}
+      placeholder={placeholder}
+      onChange={(e) => setInputValue(e.target.value)}
+      onBlur={handleSave}
+      onKeyDown={handleKeyDown}
+      autoFocus
+      className="editable-input"
+    />
+  ) : (
+    <p onClick={() => setIsEditing(true)} className="editable-value">
+      {value || placeholder}
+    </p>
   );
 }
 
